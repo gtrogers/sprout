@@ -10,6 +10,11 @@ that gap while the knowledge is still fresh. Skip it and the specs quietly
 become fiction — and once a reader has caught a spec lying, they stop trusting
 all of them.
 
+**Tidy is for what implementation taught you — not for work you deferred.**
+Updating a template, a skill or a document that your own spec change made
+wrong is part of the build loop. If you can see the consequence at spec time,
+it is not a learning.
+
 ## Invariant
 
 A spec that no longer matches reality is a bug, and is fixed at its own
@@ -44,10 +49,10 @@ One learning per pass. For each:
      `sprout-spec`, do not quietly reshape the overview here
 2. **Apply the smallest edit** at the right altitude.
 3. **Bump `version`** if you changed a spec's substance. Typo fixes do not count.
-4. **Re-pin the inventory.** Bumping drifts every row pinned to that spec, so
-   `sprout check` will fail. For each drifted row: re-run its verify command,
-   and re-pin only if it passes. A row whose verify now fails goes back to
-   `building` — it is no longer built.
+4. **Close the gap you just opened.** Bumping a spec puts that subsystem behind
+   again, which `sprout next` will report. Re-run its verify command, and raise
+   `implemented` to the new version only if it passes. If it fails, leave
+   `implemented` where it is: the subsystem genuinely no longer meets its spec.
 5. **Run the checks.**
 
        python3 .sprout/sprout.py check
@@ -55,17 +60,19 @@ One learning per pass. For each:
 
 Repeat until no learnings remain and both commands are clean.
 
-Then sweep for inventory rot, which accumulates silently:
+Then sweep for ledger rot, which accumulates silently:
 
-- Rows marked `built` whose capability was dropped — delete them
-- Capabilities that exist in code but have no row — add them, or delete the code
-- Rows still `building` from a finished slice — resolve each either way
+- Rows for subsystems that no longer exist — delete them, and their specs
+- Exploded specs with no row — `check` catches these, but understand why it
+  happened before adding one
+- Subsystems left behind their specs from a finished slice — either finish them
+  or revert the spec; a permanent gap is a lie about what is planned
 
 ## Exit — success
 
 - Every parked learning is classified and applied
 - Changed specs have bumped versions
-- No drifted rows; every re-pinned row was re-verified, not just re-pinned
+- Every subsystem's `implemented` was raised only after re-verifying
 - `sprout check` and `sprout verify` are both clean
 - No spec contains detail a test already pins down
 
@@ -76,9 +83,9 @@ Then: `sprout-showcase`.
 - **A learning invalidates the overview spec.** Subsystem boundaries or
   constraints turned out wrong. Too big for tidy — go to `sprout-spec`, then
   return.
-- **A re-verified row now fails.** Something that was built has regressed, or
-  was never really verified. Set it back to `building` and report it. Do not
-  re-pin a failing row to make the check pass.
+- **A re-verified subsystem now fails.** Something implemented has regressed,
+  or was never really verified. Leave `implemented` where it is and report it.
+  Never raise it to make a gap disappear.
 - **A learning keeps reopening settled specs.** Two passes touching the same
   spec in contradictory directions means the design is unresolved, not untidy.
   Stop and raise it with the user.

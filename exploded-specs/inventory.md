@@ -1,7 +1,7 @@
 ---
 id: inventory
 kind: exploded-spec
-version: 2
+version: 3
 status: active
 parent: overview
 ---
@@ -10,68 +10,61 @@ parent: overview
 
 ## Purpose
 
-The ledger that decides what exists. It is the arbiter the method is built
-around: a capability absent from here, or present without a passing verify
-command, does not exist regardless of what the code appears to do.
+The ledger of subsystem evolution. Subsystem specs grow and change as the
+project is built up slice by slice; this records, for each subsystem, which
+spec version the implementation currently satisfies and how that is checked.
+
+The gap between a spec's version and the version implemented is **work owed**.
+It is the queue the project works through, not a fault.
 
 ## Responsibilities
 
-- Record every capability, its state, and how it is verified
-- Pin each capability to the spec version it was built against
+- Record every subsystem, its spec, the version implemented, and its check
+- Make the spec-to-implementation gap visible and computable
 - Remain readable and editable by hand
-- Report progress across states
 
 ## Explicitly not responsible for
 
+- Listing capabilities or features. A slice document says what is being
+  delivered; this says what state each subsystem is in.
 - Running verify commands — that is the Verifier
 - Validating its own contents — that is the Checker
-- Scheduling, estimation, assignment or anything else project-management shaped
+- Scheduling, estimation, assignment or anything project-management shaped
 
 ## Interface
 
-A CSV file at `INVENTORY.csv` in the project root, with a header row.
-
-The ledger is structured data and is stored as such. An earlier version used a
-markdown table on the grounds that humans read it more often than machines do,
-which conflated reading with storing: the human-facing view is `sprout status`,
-which renders better than a raw table ever did.
-
-CSV rather than JSON because the schema is flat with nothing to nest, because
-line-oriented storage keeps diffs and branch merges clean, and because stdlib
-quoting removes the hand-editing traps that punctuation in a capability
-description would otherwise create.
+A CSV file at `INVENTORY.csv` in the project root, with a header row. One row
+per subsystem.
 
 | Column | Meaning |
 |---|---|
-| `id` | Lowercase-hyphenated, unique across the project |
-| `capability` | What a user can do, in their language |
-| `slice` | The slice delivering it; must name a real slice document |
-| `status` | `planned`, `building` or `built` |
-| `spec` | Path to the spec defining it |
-| `ver` | The spec version it was built against |
-| `verify` | A single command that exits zero when the capability works |
+| `subsystem` | Lowercase-hyphenated id, matching its exploded spec's `id` |
+| `spec` | Path to the exploded spec defining it |
+| `implemented` | The spec version the implementation satisfies; empty if none |
+| `verify` | A single command that exits zero when the subsystem meets its spec |
 
-The `slice` column links capabilities to the work that delivers them. Without
-it, "all of this slice's rows are built" cannot be computed and slice state has
-to be declared by hand — a self-reported claim of exactly the kind this ledger
-exists to refuse.
+The spec's *current* version is deliberately not stored. It is read from the
+spec file, so it cannot go stale — only one number is recorded here, and it is
+the one a machine cannot derive: what the implementation actually satisfies.
+
+### Derived state
+
+| Condition | State |
+|---|---|
+| `implemented` empty | `planned` — specced, nothing built |
+| `implemented` < spec version | `building` — the spec has evolved past the code |
+| `implemented` == spec version | `built` |
+| `implemented` > spec version | inconsistent; fails the checks |
+
+A subsystem is only `built` when its verify command passes at the spec's
+current version. Bumping `implemented` without re-verifying is the one move
+that breaks the ledger's meaning.
 
 ### The verification contract
 
-- `built` requires a non-empty verify command that passes. There is no other
-  route to `built`.
 - Verify commands are single invocations — no pipes, redirects or chaining — so
   any row can be run by hand. Compound checks live in a script or make target.
-  CSV quoting would now tolerate a pipe, so this is a deliberate rule rather
-  than a storage constraint: it keeps every row independently runnable.
-- `planned` and `building` rows may omit the command, but a `planned` row whose
-  command cannot be *named* signals work that is not yet understood.
-
-### State transitions
-
-`planned` → `building` when work starts → `built` when verification passes.
-`built` → `building` when a re-verification fails. The backwards transition is
-required, not optional: a regression means the capability has stopped existing.
+- A subsystem with no verify command can never be more than `planned`.
 
 ### Failure modes
 
@@ -81,15 +74,18 @@ required, not optional: a regression means the capability has stopped existing.
 | Missing required column | Reported with the column names; parsing stops |
 | Row has wrong field count | Reported with line number; other rows still checked |
 | Unparseable CSV | Reported with line number and the parse error |
+| `implemented` above the spec's version | Reported as an inconsistency |
 
 ## Invariants
 
-- IDs are unique.
-- Every row's spec reference resolves to a real, readable document.
-- Every row's slice reference resolves to a real slice document.
-- A row's `Ver` always equals its spec's current version, or the project is in
-  a known-failing drift state.
+- Subsystem ids are unique, and each names a real exploded spec whose `id`
+  matches.
+- Every exploded spec has exactly one row. A specced subsystem absent from the
+  ledger would be work owed that nothing reports, so the gap set stays a
+  complete description of outstanding work.
+- `implemented` never exceeds its spec's current version.
+- A gap is not a failure. Consistency is checked; progress is reported.
 
 ## Depends on
 
-- Document kinds, for the spec references and versions it pins.
+- Document kinds, for the exploded specs it references and their versions.

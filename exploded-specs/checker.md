@@ -1,7 +1,7 @@
 ---
 id: checker
 kind: exploded-spec
-version: 3
+version: 4
 status: active
 parent: overview
 ---
@@ -54,8 +54,9 @@ Validating `status` against the kind closes a gap in v1, which checked only
 that the field was present. A slice could therefore carry any value at all,
 and one did — undetected — until the Navigator needed to read the lifecycle.
 
-Inventory: CSV parses with all required columns; every row names a slice that
-exists; IDs unique and well-formed;
+Inventory: CSV parses with all required columns; subsystem ids unique and
+well-formed; every row's spec exists and its `id` matches the row; `implemented`
+is blank or a positive integer no greater than the spec's current version;
 `status` known; spec reference resolves; `Ver` matches the spec's current
 version; `built` rows carry a verify command; verify commands are free of shell
 metacharacters.
@@ -69,7 +70,8 @@ failure, since length is guidance rather than a rule.
 
 | Condition | Observable result |
 |---|---|
-| Spec version bumped, rows still pinned | `DRIFT` on each row, naming both versions and what to do |
+| Spec version bumped past `implemented` | Not a failure. The gap is work owed and the Navigator reports it |
+| `implemented` above the spec's version | Failure, naming both versions |
 | Unreadable document | Reported as unreadable; the run continues |
 | Inventory absent | Reported; spec checks still run |
 
@@ -77,7 +79,9 @@ failure, since length is guidance rather than a rule.
 
 - Pure: reports and changes nothing.
 - Deterministic: same inputs, same output, no network or clock dependence.
-- Never passes a project whose `built` rows lack verify commands.
+- Never passes a project whose implemented rows lack verify commands.
+- Never fails a project merely because a spec has evolved ahead of its
+  implementation. That is the normal mid-slice state.
 - Warnings never affect the exit code.
 
 ## Depends on

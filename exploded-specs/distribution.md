@@ -1,7 +1,7 @@
 ---
 id: distribution
 kind: exploded-spec
-version: 2
+version: 3
 status: active
 parent: overview
 ---
@@ -42,7 +42,7 @@ is followed regardless of which agent is driving.
 | `.sprout/` | Tool and templates, committed with the project |
 | `.agents/skills/` | Canonical skills; the widest-read discovery path |
 | `.claude/skills`, `.cursor/skills`, `.gemini/skills` | Links to the canonical location |
-| `INVENTORY.csv` | The ledger, header only but valid |
+| `INVENTORY.csv` | The subsystem ledger, header only but valid |
 | `AGENTS.md` | Always-on invariants appended; `CLAUDE.md` points at it |
 | `specs/`, `exploded-specs/`, `slices/`, `spikes/`, `verify/` | Where documents and checks live |
 

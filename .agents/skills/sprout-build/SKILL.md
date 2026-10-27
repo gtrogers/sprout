@@ -25,11 +25,16 @@ All of these hold. If any fails, route instead of starting:
 | Missing | Go to |
 |---|---|
 | Slice doc with a walkthrough | `sprout-slice` |
-| Current exploded spec per touched subsystem | `sprout-slice` |
-| Inventory rows for the capabilities | `sprout-slice` |
-| `sprout check` clean | fix the drift first |
+| A current exploded spec for the work | `sprout-slice` |
+| A verify command on every subsystem being advanced | `sprout-slice` |
+| `sprout check` clean | repair the inconsistency first |
 
-Then mark the rows you are working on as `building`.
+Confirm what is owed before starting:
+
+    python3 .sprout/sprout.py next
+
+It names each subsystem whose spec has moved ahead of its implementation. That
+gap is the work. Nothing needs marking as started — the gap already says so.
 
 ## Loop A — reach predicted failure
 
@@ -82,19 +87,25 @@ Each pass: implement, run the tests, inspect what moved.
 
 **Exit** when all tests pass and none were weakened.
 
-## Then wire up verification
+## Then close the gap
 
-Create the verify command each inventory row promised: a script under `verify/`
-or a make target, a single invocation, exits non-zero on failure, runnable by
-hand.
+Make sure the verify command the ledger promised actually exists: a script
+under `verify/` or a make target, a single invocation, exits non-zero on
+failure, runnable by hand.
 
-Flip the rows to `built` and prove it:
+Run it, and only then raise `implemented` to the spec's version:
 
+    python3 .sprout/sprout.py verify --id <subsystem>
+    # passes? now set implemented to the spec version in INVENTORY.csv
     python3 .sprout/sprout.py check
     python3 .sprout/sprout.py verify
 
-A row is `built` only when its verify command passes — not when the code looks
-finished, and not when the tests happen to pass some other way.
+Raising `implemented` without re-verifying is the single move that destroys the
+ledger's meaning. It is the one number in the project that cannot be derived,
+which is exactly why it may only be changed on evidence.
+
+The checks will not let you claim a version your spec does not have, but
+nothing except your discipline stops you claiming one your code does not meet.
 
 ## Exit — success
 
@@ -102,7 +113,9 @@ finished, and not when the tests happen to pass some other way.
 - Each test was observed failing for its predicted reason before implementation
 - Tests pass without having been weakened
 - Verify commands exist, are single invocations, and pass
-- `sprout check` and `sprout verify` are both clean
+- Every advanced subsystem's `implemented` equals its spec version
+- `sprout check` and `sprout verify` are both clean, and `sprout next` no
+  longer routes here
 
 Then: `sprout-tidy`.
 
@@ -121,6 +134,7 @@ Each of these is a real outcome. Report it and route; do not grind.
 - **The slice is bigger than specced.** Implementation reveals work the slice
   did not account for. Do not silently expand. Finish what is in scope, report
   what is missing, and let the user decide whether to re-slice.
-- **A capability cannot be verified after all.** The promised verify command
-  turns out to be impossible. The capability does not exist until it can be
-  checked — leave the row as `building`, never mark it `built`, and raise it.
+- **A subsystem cannot be verified after all.** The promised verify command
+  turns out to be impossible. It is not implemented until it can be checked —
+  leave `implemented` where it was, never raise it, and raise the problem
+  instead.

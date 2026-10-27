@@ -61,9 +61,13 @@ Each pass, re-ask: has anything learned invalidated an earlier section?
 ### Revising an existing spec
 
 Bump `version` on every substantive change, then run
-`python3 .sprout/sprout.py check`. Rows pinned to the old version now fail.
-That is the mechanism working — each must be re-verified and re-pinned, or the
-change reverted. Never silently re-pin a row you have not re-verified.
+`python3 .sprout/sprout.py next`. Any subsystem now behind its spec is reported
+as work owed — the checks still pass, because a spec ahead of its code is the
+normal state mid-slice. That gap is the queue.
+
+Never raise a subsystem's `implemented` version without re-verifying it. It is
+the one number in the project that cannot be derived, which is exactly why it
+may only be changed on evidence.
 
 ## Exit — success
 

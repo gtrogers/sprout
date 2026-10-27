@@ -5,8 +5,8 @@ A lightweight, cross-agent framework for spec-driven, slice-based delivery.
 Specs describe intent. Tests pin down behaviour. An inventory decides what
 exists. One command settles whether the work you were promised is real.
 
-> **If a capability cannot be verified deterministically and programmatically,
-> it does not exist.**
+> **If a subsystem cannot be verified deterministically and programmatically,
+> it is not implemented.**
 
 Sprout is specced, sliced and verified with its own method, so this repository
 is also a worked example. Six skills, one ~450-line stdlib Python tool, four
@@ -59,24 +59,44 @@ All four obey one rule: **anything a test could pin down belongs in a test**,
 not in a document. Specs say what callers may rely on; tests say exactly what
 happens.
 
-Every document carries a monotonic `version` in YAML frontmatter.
+Every document carries a monotonic `version` in YAML frontmatter — except a
+slice, which declares neither a version-bearing status nor the subsystems it
+touches. Both are derived: updating an exploded spec *is* how a slice declares
+it will touch that subsystem, and the resulting gap is what `sprout next`
+reads.
+
+The flow is strictly one-way, and specs move first:
+
+    overview spec -> exploded specs -> tests -> implementation -> tidy
 
 ## The inventory
 
-`INVENTORY.csv` is the arbiter. It is structured data, stored as such — CSV
-rather than JSON because the schema is flat, diffs and merges stay clean, and
-stdlib quoting means a description can contain commas and quotes without
-hand-escaping. The human-facing view is `sprout status`, which renders it
-better than a raw table would.
+`INVENTORY.csv` is the arbiter — a ledger of **subsystem evolution**. Subsystem
+specs grow as a project is built up; this records, for each one, which spec
+version the implementation satisfies and how that is checked.
 
 ```csv
-id,capability,slice,status,spec,ver,verify
-auth-login,A user can log in with email and password,auth-happy-path,built,exploded-specs/auth.md,2,make verify-auth
+subsystem,spec,implemented,verify
+auth,exploded-specs/auth.md,2,make verify-auth
 ```
 
-The `slice` column links each capability to the work that delivers it, so
-slice state can be computed rather than declared. `ver` pins the spec version
-the capability was built against. Revise that spec
+The spec's *current* version is deliberately not stored — it is read from the
+spec file, so it cannot go stale. Only one number lives here, and it is the one
+a machine cannot derive: what the code actually satisfies.
+
+**The gap is the work.** A spec ahead of its implementation is not an error, it
+is the queue:
+
+| Condition | State |
+|---|---|
+| `implemented` empty | `planned` |
+| `implemented` < spec version | `building` — work owed |
+| `implemented` == spec version | `built` |
+| `implemented` > spec version | inconsistent; fails the checks |
+
+Raising `implemented` without re-verifying is the one move that destroys the
+ledger's meaning, which is why nothing but a passing verify command should ever
+raise it. Revise that spec
 and every row pinned to it **drifts**, failing checks until each is re-verified
 and re-pinned. That is the mechanism that stops specs quietly becoming fiction.
 
@@ -141,6 +161,11 @@ resident, and the loop bodies load only when a loop starts.
 python3 verify/verify.py --all
 ```
 
-Ten black-box tests that drive the CLI as a subprocess in throwaway projects.
-None of them import the tool — they test the shipped interface, which is what
-the method asks of everyone else.
+Black-box tests that drive the CLI as a subprocess in throwaway projects,
+grouped by subsystem — the unit the ledger tracks, so each row's verify command
+asks "does this subsystem meet its spec". None of them import the tool.
+
+```sh
+python3 verify/verify.py navigator    # one subsystem
+python3 verify/verify.py --list
+```

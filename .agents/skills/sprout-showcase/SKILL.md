@@ -72,7 +72,8 @@ often than you would expect.
 - Feedback is resolved, or explicitly deferred with a note of what was deferred
 - Behaviour bugs found here got tests, not just fixes
 - `sprout check` and `sprout verify` clean after any changes
-- Inventory reflects what is actually there
+- The ledger reflects what is actually there: no subsystem claims a version it
+  does not meet
 
 Then: `sprout-slice` for the next slice.
 

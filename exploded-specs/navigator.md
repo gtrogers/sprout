@@ -1,7 +1,7 @@
 ---
 id: navigator
 kind: exploded-spec
-version: 3
+version: 4
 status: active
 parent: overview
 ---
@@ -33,6 +33,8 @@ nobody can cheaply establish which loop they are in.
 - Tracking sub-loop position inside `sprout-build` (Loop A versus Loop B).
   Test results are not artifacts, so this is outside what can be derived. See
   Open questions.
+- Deciding *which* subsystem to work on when several lag. It reports them; the
+  order is a judgement for the build loop.
 
 ## Interface
 
@@ -64,27 +66,30 @@ deterministic, so two agents on the same artifacts always get the same answer.
 | # | Condition | Loop |
 |---|---|---|
 | 1 | Structural check failures (frontmatter, malformed inventory) | `repair` — not a skill |
-| 2 | Any drifted row | `sprout-tidy` |
-| 3 | Any row `building` | `sprout-build` |
-| 4 | Slice in flight, a touched subsystem has no current exploded spec | `sprout-slice` |
-| 5 | Slice in flight with rows `planned`, none `building` | `sprout-build` |
-| 6 | Overview spec exists, no slice in flight | `sprout-slice` |
-| 7 | No overview spec | `sprout-spec` |
+| 2 | Any subsystem's `implemented` lags its spec version | `sprout-build` |
+| 3 | Overview spec exists, no gaps remain | `sprout-slice` |
+| 4 | No overview spec | `sprout-spec` |
 
-A slice is *in flight* when its derived state is `planned` or `building` — that
-is, when some row naming it is not yet built.
+Four rules, because the flow is one-way. A slice does not declare which
+subsystems it touches: updating an exploded spec *is* that declaration, and the
+resulting gap is what the Navigator reads. Declaring it again in the slice
+document would be duplicate bookkeeping with its own way of going stale.
+
+Work owed is therefore global rather than per-slice, which is sound because
+sprout runs one slice at a time. "No gaps remain" means the current slice is
+delivered.
 
 Rule 1 outranks everything because a project that cannot be parsed has no
 trustworthy position, and it yields the pseudo-loop `repair` rather than a
-skill name. Rule 2 outranks progress because building on a drifted spec is how
-specs become fiction. Rule 3 outranks rule 4 so that a capability in progress
-is never masked by a slice awaiting showcase.
+skill name.
 
-**Slice state is derived, never declared.** Every inventory row names the slice
-delivering it, so slice state is computed from the ledger: `building` if any
-row is building, `built` once all are, `planned` otherwise. Nothing the
-Navigator reads is self-reported, and a slice cannot claim to be further along
-than its capabilities are.
+There is no longer a drift rule. A spec ahead of its implementation is the
+normal mid-slice state, not a fault: it is rule 2, and it routes to the build
+loop rather than to repair.
+
+**Nothing the Navigator reads is self-reported.** Spec versions come from the
+spec files; implemented versions come from the ledger and may only be raised by
+re-verifying. There is no field anyone can set to claim progress.
 
 **There is no showcase rule.** Showcasing is an action, not a state, and a flag
 asserting it had happened would be unverifiable. Rule 6 prompts for it in its
@@ -112,8 +117,8 @@ evidence, and it is a known gap rather than an oversight.
 ## Depends on
 
 - Checker, for the verdict that rules 1 and 2 consume.
-- Document kinds, for the slice lifecycle that rules 4 to 7 read.
-- Inventory, for row statuses.
+- Document kinds, for the document contract.
+- Inventory, for each subsystem's implemented version.
 
 ## Open questions
 

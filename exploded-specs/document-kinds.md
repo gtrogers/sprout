@@ -1,7 +1,7 @@
 ---
 id: document-kinds
 kind: exploded-spec
-version: 4
+version: 6
 status: active
 parent: overview
 ---
@@ -27,6 +27,11 @@ created from templates.
 
 ## Interface
 
+A slice document declares a goal, not a plan. It names what will be true when
+the slice lands; which subsystems that requires is expressed by updating their
+exploded specs, not by listing them twice.
+
+
 ### Frontmatter contract
 
 Every document opens with flat `key: value` frontmatter between `---` fences.
@@ -46,13 +51,14 @@ to work around.
 Documents that describe intent carry an editorial `status` of `draft`, `active`
 or `superseded`.
 
-**A slice declares no status at all.** Its state is derived from the inventory
-rows that name it: `building` if any row is building, `built` once every row is
-built, `planned` otherwise. Declaring it is rejected.
+**A slice declares no status at all**, and no subsystem list either. Both are
+derived: the project is mid-slice while any subsystem's `implemented` lags its
+spec version, and the slice is delivered once no gap remains. Declaring a
+status is rejected.
 
-A slice is a unit of work, and its progress is a fact about the capabilities it
-delivers — so it is computed from the ledger rather than asserted in
-frontmatter. A declared status is a self-report, and a self-report is precisely
+A slice is a unit of work, and its progress is a fact about how far the
+subsystems have caught up with their specs — so it is computed from the ledger
+rather than asserted in frontmatter. A declared status is a self-report, and a self-report is precisely
 what this method refuses everywhere else: it can be set to `built` by anyone,
 at any time, with nothing to contradict it.
 
@@ -77,6 +83,11 @@ test, not in a document.
 
 `new <kind> <name>` creates `<dir>/<name>.md` from the matching template,
 substituting `{{id}}`, `{{title}}` and `{{date}}`.
+
+Scaffolding an `exploded-spec` also adds its ledger row — unimplemented, with
+no verify command yet. Without it the project would fail its own checks the
+moment a subsystem was scaffolded, since every exploded spec must appear in the
+ledger exactly once.
 
 ### Failure modes
 

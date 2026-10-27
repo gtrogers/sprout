@@ -8,9 +8,10 @@ of work. Specs describe intent and interface; tests pin down behaviour.
 
 Non-negotiables:
 
-1. **Unverifiable means nonexistent.** A capability counts as built only when
-   `INVENTORY.csv` lists it with a verify command that passes. No deterministic,
-   programmatic check means it does not exist, however complete the code looks.
+1. **Unverifiable means not implemented.** A subsystem counts as implemented at
+   a version only when `INVENTORY.csv` carries a verify command that passes. No
+   deterministic, programmatic check means it is not done, however complete the
+   code looks.
 2. **Tests before implementation.** Write black-box, end-to-end tests first,
    run them, and confirm they fail for the anticipated reason. A test that
    passes before implementation, or fails for the wrong reason, is a broken
@@ -18,9 +19,14 @@ Non-negotiables:
 3. **Specs are versioned and are not implementation.** Every spec carries
    `version` in YAML frontmatter. Specs state goals, intent, interfaces and
    invariants. If a test could pin it down, it belongs in a test.
-4. **The inventory pins spec versions.** Revising a spec drifts every row
-   pinned to it, and `sprout check` fails until each is re-verified and
-   re-pinned.
+   The flow is one-way and specs move first:
+   overview spec -> exploded specs -> tests -> implementation -> tidy.
+   Changing a goal, constraint or invariant means updating the overview spec
+   **before** touching anything else, not at the tidy pass.
+4. **The ledger tracks spec versus implementation.** `INVENTORY.csv` records,
+   per subsystem, which spec version the code satisfies. A spec ahead of its
+   implementation is **work owed**, not an error — it is the queue, and
+   `sprout next` reports it. Raise `implemented` only after re-verifying.
 5. **Learnings flow back.** When implementation teaches you something the spec
    got wrong, fix the spec and bump its version. Do not leave the spec lying.
 

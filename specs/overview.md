@@ -1,7 +1,7 @@
 ---
 id: overview
 kind: spec
-version: 1
+version: 2
 status: active
 ---
 
@@ -53,7 +53,7 @@ output is indistinguishable from completion unless something external checks.
 | Subsystem | Purpose |
 |---|---|
 | Document kinds | The four document types and what altitude each occupies |
-| Inventory | The ledger that decides what exists, and the verification contract |
+| Inventory | The ledger of subsystem evolution: what each spec says, what the implementation satisfies, how to check |
 | Checker | Deterministic validation of specs, inventory and drift |
 | Verifier | Executes the inventory's verify commands and reports honestly |
 | Skills | The loops an agent follows, with explicit success and failure exits |
@@ -67,8 +67,9 @@ output is indistinguishable from completion unless something external checks.
   scripts to drift apart.
 - **Skills use only `name` and `description` frontmatter.** Everything else in
   the Agent Skills standard is read by some agents and ignored by others.
-- **Inventory is human-readable.** It is read and edited by hand far more often
-  than by machine, so a markdown table, not a data file.
+- **The inventory is structured data**, stored as such. It is read by hand
+  often, but the human-facing view is `sprout status` rather than the storage
+  format.
 - **No YAML parser available**, which bounds frontmatter to flat key–value
   pairs. Acceptable: nesting would be at the wrong altitude anyway.
 - **Agents discover skills at different paths**, so one canonical location with
@@ -76,11 +77,15 @@ output is indistinguishable from completion unless something external checks.
 
 ## Invariants
 
-- A capability is `built` only if a verify command exists and exits zero. There
-  is no second route to `built`.
+- A subsystem is implemented at a version only if a verify command exists and
+  exits zero. There is no second route.
 - Every spec carries a monotonic integer `version`.
-- Every inventory row pins the spec version it was built against; a mismatch is
-  a check failure, not a warning.
+- Subsystem specs evolve as the project is built up. The ledger records, per
+  subsystem, which spec version the implementation satisfies. The gap between
+  that and the spec's current version is **work owed**, not an error: it is the
+  queue, and closing it is what a slice does.
+- An implementation may never claim a version its spec does not have. That is
+  an inconsistency and fails the checks.
 - Verify commands are single invocations, so a human can run any one of them by
   hand without knowing a shell.
 - `sprout check` and `sprout verify` are pure: they report, and change nothing.
@@ -90,10 +95,10 @@ output is indistinguishable from completion unless something external checks.
 
 ## Open questions
 
-- Should drift distinguish editorial from substantive spec changes? Currently
-  any version bump drifts every pinned row, which is safe but noisy on large
-  projects. Monotonic integers were chosen over semver to keep bumping
-  unambiguous; the cost is that noise.
+- Monotonic integers were chosen over semver to keep bumping unambiguous. An
+  editorial fix therefore costs the same as a substantive one: a version the
+  implementation must catch up to. Cheap now that a gap is a queue entry rather
+  than a failure, but still a nudge toward not bumping for typos.
 - Should `verify` support parallel execution? Irrelevant until a real project
   has enough rows for it to hurt.
 - Is a fifth document kind needed for cross-cutting decisions (an ADR), or does

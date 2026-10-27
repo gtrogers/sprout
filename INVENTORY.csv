@@ -1,21 +1,8 @@
-id,capability,slice,status,spec,ver,verify
-cli-check-requires-versioned-specs,"Every spec must carry a version, or the project fails its checks",self-hosting-core,built,exploded-specs/checker.md,3,python3 verify/verify.py cli-check-requires-versioned-specs
-cli-check-detects-spec-drift,Revising a spec drifts every inventory row pinned to it,self-hosting-core,built,exploded-specs/checker.md,3,python3 verify/verify.py cli-check-detects-spec-drift
-cli-check-rejects-unverifiable-capabilities,A capability cannot be marked built without a verify command,self-hosting-core,built,exploded-specs/checker.md,3,python3 verify/verify.py cli-check-rejects-unverifiable-capabilities
-cli-check-rejects-shell-metacharacters,Verify commands must be single invocations a human can run by hand,self-hosting-core,built,exploded-specs/checker.md,3,python3 verify/verify.py cli-check-rejects-shell-metacharacters
-cli-check-rejects-duplicate-and-missing-refs,Duplicate IDs and dangling spec references are caught,self-hosting-core,built,exploded-specs/checker.md,3,python3 verify/verify.py cli-check-rejects-duplicate-and-missing-refs
-cli-verify-executes-commands,Verification runs each built capability's command and reports honestly,self-hosting-core,built,exploded-specs/verifier.md,1,python3 verify/verify.py cli-verify-executes-commands
-cli-new-scaffolds-documents,"New specs, slices and spikes scaffold from templates, ready to check",self-hosting-core,built,exploded-specs/document-kinds.md,4,python3 verify/verify.py cli-new-scaffolds-documents
-cli-status-reports-progress,"The inventory reports what is built, in progress and planned",self-hosting-core,built,exploded-specs/inventory.md,2,python3 verify/verify.py cli-status-reports-progress
-skills-are-cross-agent-portable,Every skill stays within the portable Agent Skills subset,self-hosting-core,built,exploded-specs/skills.md,1,python3 verify/verify.py skills-are-cross-agent-portable
-install-bootstraps-a-project,One command installs sprout and wires up every agent's entry point,self-hosting-core,built,exploded-specs/distribution.md,2,python3 verify/verify.py install-bootstraps-a-project
-check-validates-status-per-kind,Documents cannot carry a status outside their kind's lifecycle,know-where-you-are,built,exploded-specs/checker.md,3,python3 verify/verify.py check-validates-status-per-kind
-next-reports-position,"One command names the current loop, its reason, the blocker and the next action",know-where-you-are,built,exploded-specs/navigator.md,3,python3 verify/verify.py next-reports-position
-next-precedence-is-deterministic,"The same artifacts always resolve to the same position, by published precedence",know-where-you-are,built,exploded-specs/navigator.md,3,python3 verify/verify.py next-precedence-is-deterministic
-next-survives-degenerate-projects,"Empty, uninitialised and unparseable projects all yield a position or a clear refusal",know-where-you-are,built,exploded-specs/navigator.md,3,python3 verify/verify.py next-survives-degenerate-projects
-inventory-is-csv,"The ledger is CSV, so punctuation in any field survives without hand-escaping",inventory-is-structured-data,built,exploded-specs/inventory.md,2,python3 verify/verify.py inventory-is-csv
-inventory-rows-name-their-slice,"Every capability names the slice delivering it, and dangling references are caught",inventory-is-structured-data,built,exploded-specs/inventory.md,2,python3 verify/verify.py inventory-rows-name-their-slice
-check-rejects-malformed-inventory,Missing columns and malformed rows are reported with their line numbers,inventory-is-structured-data,built,exploded-specs/checker.md,3,python3 verify/verify.py check-rejects-malformed-inventory
-slice-state-is-derived-from-rows,"A slice's state is computed from the rows naming it, never declared",slice-state-is-derived,built,exploded-specs/document-kinds.md,4,python3 verify/verify.py slice-state-is-derived-from-rows
-check-rejects-declared-slice-status,"A slice that declares a status is rejected, so the self-report cannot return",slice-state-is-derived,built,exploded-specs/document-kinds.md,4,python3 verify/verify.py check-rejects-declared-slice-status
-next-routes-on-derived-slice-state,"Routing follows the ledger, so changing a row changes the reported loop",slice-state-is-derived,built,exploded-specs/navigator.md,3,python3 verify/verify.py next-routes-on-derived-slice-state
+subsystem,spec,implemented,verify
+checker,exploded-specs/checker.md,4,python3 verify/verify.py checker
+distribution,exploded-specs/distribution.md,3,python3 verify/verify.py distribution
+document-kinds,exploded-specs/document-kinds.md,6,python3 verify/verify.py document-kinds
+inventory,exploded-specs/inventory.md,3,python3 verify/verify.py inventory
+navigator,exploded-specs/navigator.md,4,python3 verify/verify.py navigator
+skills,exploded-specs/skills.md,1,python3 verify/verify.py skills
+verifier,exploded-specs/verifier.md,1,python3 verify/verify.py verifier

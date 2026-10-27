@@ -23,24 +23,15 @@ This is the skeleton the black-box tests will follow.
 2. 
 3. 
 
-## Subsystems touched
+## Verification
 
-Each needs a current exploded spec before implementation starts.
+Every subsystem this slice advances needs a verify command in `INVENTORY.csv`
+before implementation starts — decide it now, while the work can still be
+shaped around being checkable.
 
-| Subsystem | Exploded spec | New or changed |
-|---|---|---|
-|  |  |  |
-
-## Capabilities delivered
-
-Rows to add to `INVENTORY.csv`, each naming this slice in its `slice` column.
-Every one needs a verify command that will exist by the end of the slice —
-decide it now, while it is still cheap to shape the work around being
-verifiable.
-
-| ID | Capability | Verify |
-|---|---|---|
-|  |  |  |
+Do not list which subsystems the slice touches. Updating their exploded specs
+is that declaration; the resulting spec-to-implementation gap is what `sprout
+next` reads.
 
 ## Out of scope
 
