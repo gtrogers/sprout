@@ -1,7 +1,7 @@
 ---
 id: distribution
 kind: exploded-spec
-version: 1
+version: 2
 status: active
 parent: overview
 ---
@@ -42,7 +42,7 @@ is followed regardless of which agent is driving.
 | `.sprout/` | Tool and templates, committed with the project |
 | `.agents/skills/` | Canonical skills; the widest-read discovery path |
 | `.claude/skills`, `.cursor/skills`, `.gemini/skills` | Links to the canonical location |
-| `INVENTORY.md` | The ledger, empty but valid |
+| `INVENTORY.csv` | The ledger, header only but valid |
 | `AGENTS.md` | Always-on invariants appended; `CLAUDE.md` points at it |
 | `specs/`, `exploded-specs/`, `slices/`, `spikes/`, `verify/` | Where documents and checks live |
 
@@ -61,7 +61,7 @@ skills, so a project does not pay context for the whole method on every turn.
 | Tooling already present, no `--force` | Skipped, with a line saying `--force` would update |
 | `AGENTS.md` already has the block | Skipped; never duplicated |
 | Symlinks unavailable | Falls back to copying and says so |
-| Existing `INVENTORY.md`, specs or `CLAUDE.md` | Always left untouched, `--force` included |
+| Existing `INVENTORY.csv`, specs or `CLAUDE.md` | Always left untouched, `--force` included |
 
 ## Invariants
 

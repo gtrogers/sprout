@@ -4,7 +4,7 @@
     python3 install.py /path/to/project
 
 Copies .sprout/ and .agents/skills/ into the target, wires up the agent entry
-points, and creates INVENTORY.md. Safe to re-run: existing files are left alone
+points, and creates INVENTORY.csv. Safe to re-run: existing files are left alone
 unless --force is given, so upgrading skills never clobbers your specs.
 """
 
@@ -40,7 +40,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("target", type=Path, help="project directory to install into")
     ap.add_argument("--force", action="store_true",
-                    help="overwrite .sprout/ and skills (never touches specs or INVENTORY.md)")
+                    help="overwrite .sprout/ and skills (never touches specs or INVENTORY.csv)")
     args = ap.parse_args()
 
     target = args.target.resolve()
@@ -67,12 +67,12 @@ def main():
         log.append(link_or_copy(target, link, "../" * depth + ".agents/skills"))
 
     # --- project state: never overwritten, even with --force ---
-    inventory = target / "INVENTORY.md"
+    inventory = target / "INVENTORY.csv"
     if inventory.exists():
-        log.append("skip   INVENTORY.md (exists)")
+        log.append("skip   INVENTORY.csv (exists)")
     else:
-        shutil.copy2(SRC / ".sprout" / "templates" / "INVENTORY.md", inventory)
-        log.append("create INVENTORY.md")
+        shutil.copy2(SRC / ".sprout" / "templates" / "INVENTORY.csv", inventory)
+        log.append("create INVENTORY.csv")
 
     for d in ("specs", "exploded-specs", "slices", "spikes", "verify"):
         (target / d).mkdir(exist_ok=True)

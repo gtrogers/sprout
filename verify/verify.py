@@ -11,6 +11,7 @@ tests of the shipped interface, which is what the method requires of everyone
 else.
 """
 
+import csv
 import json
 import shutil
 import subprocess
@@ -40,11 +41,7 @@ def sprout(project, *args):
     )
 
 
-INV_HEADER = (
-    "# Inventory\n\n"
-    "| ID | Capability | Status | Spec | Ver | Verify |\n"
-    "|---|---|---|---|---|---|\n"
-)
+INV_COLUMNS = ("id", "capability", "slice", "status", "spec", "ver", "verify")
 
 
 class Project:
@@ -65,7 +62,7 @@ class Project:
         )
         return p
 
-    def slice_doc(self, name, status="planned", subsystems=()):
+    def slice_doc(self, name, status=None, subsystems=()):
         table = ""
         if subsystems:
             rows = "".join(
@@ -73,8 +70,9 @@ class Project:
             table = ("\n## Subsystems touched\n\n"
                      "| Subsystem | Exploded spec | New or changed |\n|---|---|---|\n" + rows)
         p = self.path / "slices" / f"{name}.md"
+        decl = f"status: {status}\n" if status is not None else ""
         p.write_text(
-            f"---\nid: {name}\nkind: slice\nversion: 1\nstatus: {status}\n---\n\n"
+            f"---\nid: {name}\nkind: slice\nversion: 1\n{decl}---\n\n"
             f"# {name}\n{table}",
             encoding="utf-8",
         )
@@ -87,9 +85,20 @@ class Project:
         except json.JSONDecodeError:
             return r, None
 
-    def inventory(self, rows):
-        body = INV_HEADER + "".join(f"| {' | '.join(r)} |\n" for r in rows)
-        (self.path / "INVENTORY.md").write_text(body, encoding="utf-8")
+    def inventory(self, rows, slice_name="s1"):
+        """rows are (id, capability, status, spec, ver, verify); the slice
+        column is filled in, and its document created if rows exist."""
+        path = self.path / "INVENTORY.csv"
+        with path.open("w", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(INV_COLUMNS)
+            for rid, cap, status, spec, ver, verify in rows:
+                w.writerow([rid, cap, slice_name, status, spec, ver, verify])
+        if rows and not (self.path / "slices" / f"{slice_name}.md").exists():
+            self.slice_doc(slice_name)
+
+    def raw_inventory(self, text):
+        (self.path / "INVENTORY.csv").write_text(text, encoding="utf-8")
 
     def script(self, name, exit_code):
         p = self.path / "verify" / name
@@ -351,7 +360,7 @@ def _():
         expect(r.returncode == 0, f"install failed:\n{r.stdout}{r.stderr}")
 
         for rel in (".sprout/sprout.py", ".agents/skills/sprout-build/SKILL.md",
-                    "INVENTORY.md", "AGENTS.md", "specs", "verify"):
+                    "INVENTORY.csv", "AGENTS.md", "specs", "verify"):
             expect((target / rel).exists(), f"install did not create {rel}")
 
         claude = target / ".claude" / "skills"
@@ -385,34 +394,20 @@ def _():
 
 # --- slice: know-where-you-are ---------------------------------------------
 
-@test("slice-lifecycle-is-representable")
-def _():
-    """A slice carries a delivery lifecycle, distinct from editorial status."""
-    p, tmp = project()
-    try:
-        p.spec("overview")
-        for status in ("planned", "building", "built", "showcased"):
-            p.slice_doc("s1", status=status)
-            r = p.run("check")
-            expect(r.returncode == 0,
-                   f"slice status {status!r} must be accepted:\n{r.stdout}")
-
-        for status in ("draft", "active", "superseded"):
-            p.slice_doc("s1", status=status)
-            r = p.run("check")
-            expect(r.returncode == 1,
-                   f"editorial status {status!r} must be rejected on a slice")
-            expect("showcased" in r.stdout,
-                   f"error should name the valid slice statuses:\n{r.stdout}")
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
 @test("check-validates-status-per-kind")
 def _():
     """Status is validated against the document's kind, not merely present."""
     p, tmp = project()
     try:
+        # a slice declares no status at all; its state is derived
+        for declared in ("planned", "building", "built", "showcased", "draft"):
+            p.slice_doc("s9", status=declared)
+            r = p.run("check")
+            expect(r.returncode == 1, f"slice declaring {declared!r} must fail")
+            expect("derived" in r.stdout.lower(),
+                   f"error should say slice state is derived:\n{r.stdout}")
+        (p.path / "slices" / "s9.md").unlink()
+
         for kind, sub in (("spec", "specs"), ("exploded-spec", "exploded-specs"),
                           ("spike", "spikes")):
             for status in ("draft", "active", "superseded"):
@@ -438,7 +433,6 @@ def _():
     p, tmp = project()
     try:
         p.spec("overview")
-        p.slice_doc("s1", status="building")
         p.inventory([("cap", "A capability", "planned", "specs/overview.md", "1", "-")])
 
         r = p.run("next")
@@ -463,24 +457,24 @@ def _():
     p, tmp = project()
     try:
         ok = p.script("ok.py", 0)
+        spec = "specs/overview.md"
 
-        # rule 8 - nothing at all
+        # rule 7 - nothing at all
         _, d = p.next_json()
         expect(d["loop"] == "sprout-spec", f"empty project should route to spec, got {d}")
 
-        # rule 7 - overview, no slice in flight
+        # rule 6 - overview, no slice in flight
         p.spec("overview")
         _, d = p.next_json()
         expect(d["loop"] == "sprout-slice", f"no slice should route to slice, got {d}")
 
-        # rule 6 - slice in flight with planned rows
-        p.slice_doc("s1", status="planned")
-        p.inventory([("cap", "A cap", "planned", "specs/overview.md", "1", f"`{ok}`")])
+        # rule 5 - a slice with planned rows is in flight
+        p.inventory([("cap", "A cap", "planned", spec, "1", ok)])
         _, d = p.next_json()
         expect(d["loop"] == "sprout-build", f"planned rows should route to build, got {d}")
 
-        # rule 5 - a touched subsystem has no exploded spec; outranks 6
-        p.slice_doc("s1", status="planned", subsystems=("ghost",))
+        # rule 4 - a touched subsystem has no exploded spec; outranks 5
+        p.slice_doc("s1", subsystems=("ghost",))
         _, d = p.next_json()
         expect(d["loop"] == "sprout-slice",
                f"missing exploded spec should route to slice, got {d}")
@@ -488,32 +482,33 @@ def _():
         _, d = p.next_json()
         expect(d["loop"] == "sprout-build", f"once exploded, back to build, got {d}")
 
-        # rule 4 - slice built but not showcased
-        p.slice_doc("s1", status="built", subsystems=("ghost",))
-        p.inventory([("cap", "A cap", "built", "specs/overview.md", "1", f"`{ok}`")])
-        _, d = p.next_json()
-        expect(d["loop"] == "sprout-showcase",
-               f"built-not-showcased should route to showcase, got {d}")
-
         # rule 3 - a building row outranks rule 4
-        p.inventory([("cap", "A cap", "building", "specs/overview.md", "1", f"`{ok}`")])
+        p.inventory([("cap", "A cap", "building", spec, "1", ok)])
+        p.slice_doc("s1", subsystems=("ghost",))
         _, d = p.next_json()
-        expect(d["loop"] == "sprout-build", f"building row outranks showcase, got {d}")
+        expect(d["rule"] == 3, f"building row should be rule 3, got {d}")
 
-        # rule 2 - drift outranks rule 3
+        # all rows built - the slice leaves flight entirely
+        p.inventory([("cap", "A cap", "built", spec, "1", ok)])
+        p.slice_doc("s1", subsystems=("ghost",))
+        _, d = p.next_json()
+        expect(d["rule"] == 6, f"fully built slice should leave flight, got {d}")
+        expect("showcase" in d["action"].lower(),
+               f"rule 6 should prompt for showcasing, got {d['action']!r}")
+
+        # rule 2 - drift outranks everything below it
         p.spec("overview", version=2)
         _, d = p.next_json()
         expect(d["loop"] == "sprout-tidy", f"drift outranks progress, got {d}")
 
         # rule 1 - structural failure outranks drift
-        (p.path / "INVENTORY.md").write_text("# Inventory\n\nno table here\n",
-                                             encoding="utf-8")
+        p.raw_inventory("broken\n")
         _, d = p.next_json()
         expect(d["rule"] == 1, f"structural failure must be rule 1, got {d}")
 
         # determinism
         p.spec("overview", version=1)
-        p.inventory([("cap", "A cap", "planned", "specs/overview.md", "1", f"`{ok}`")])
+        p.inventory([("cap", "A cap", "planned", spec, "1", ok)])
         first = [p.next_json()[1] for _ in range(3)]
         expect(all(x == first[0] for x in first), f"next must be deterministic: {first}")
     finally:
@@ -546,14 +541,14 @@ def _():
         expect(d["loop"] == "sprout-spec", f"empty should route to spec, got {d}")
 
         # inventory missing entirely
-        (p.path / "INVENTORY.md").unlink()
+        (p.path / "INVENTORY.csv").unlink()
         r, d = p.next_json()
         expect(r.returncode == 0, f"missing inventory must not crash: {r.stderr}")
         expect(d is not None and d["rule"] == 1, f"should be rule 1, got {d}")
         expect(d["blocker"], "rule 1 must name a blocker")
 
         # unparseable frontmatter
-        (p.path / "INVENTORY.md").write_text(INV_HEADER, encoding="utf-8")
+        p.inventory([])
         (p.path / "specs" / "broken.md").write_text("no frontmatter at all\n",
                                                     encoding="utf-8")
         r, d = p.next_json()
@@ -564,7 +559,181 @@ def _():
         shutil.rmtree(bare_tmp, ignore_errors=True)
 
 
+@test("inventory-is-csv")
+def _():
+    """The ledger is CSV, so punctuation survives without hand-escaping."""
+    p, tmp = project()
+    try:
+        p.spec("overview")
+        tricky = 'Export "all" items, including commas, and it\'s fine'
+        p.inventory([("tricky", tricky, "built", "specs/overview.md", "1",
+                      "python3 verify/ok.py")])
+        p.script("ok.py", 0)
+
+        r = p.run("check")
+        expect(r.returncode == 0, f"CSV must survive punctuation:\n{r.stdout}")
+
+        path = p.path / "INVENTORY.csv"
+        expect(path.exists(), "ledger should be INVENTORY.csv")
+        expect(not (p.path / "INVENTORY.md").exists(),
+               "the markdown ledger should no longer be used")
+
+        with path.open(newline="", encoding="utf-8") as fh:
+            parsed = list(csv.DictReader(fh))
+        expect(len(parsed) == 1, f"expected one row, got {parsed}")
+        expect(parsed[0]["capability"] == tricky,
+               f"round-trip lost data: {parsed[0]['capability']!r}")
+
+        expect("Export" in p.run("status").stdout, "status must read the CSV")
+        expect(p.run("verify").returncode == 0, "verify must read the CSV")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test("inventory-rows-name-their-slice")
+def _():
+    """Every capability names the slice delivering it; dangling refs fail."""
+    p, tmp = project()
+    try:
+        p.spec("overview")
+        ok = p.script("ok.py", 0)
+        row = ("cap", "A capability", "built", "specs/overview.md", "1", ok)
+
+        p.inventory([row], slice_name="s1")
+        expect(p.run("check").returncode == 0, "row naming a real slice should pass")
+
+        # written raw: the inventory() helper creates a slice document on
+        # demand, which would resolve the very reference under test.
+        p.raw_inventory("id,capability,slice,status,spec,ver,verify\n"
+                        f"cap,A capability,ghost,built,specs/overview.md,1,{ok}\n")
+        r = p.run("check")
+        expect(r.returncode == 1, "row naming a missing slice must fail")
+        expect("ghost" in r.stdout, f"error should name the missing slice:\n{r.stdout}")
+
+        p.raw_inventory("id,capability,slice,status,spec,ver,verify\n"
+                        f"cap,A capability,,built,specs/overview.md,1,{ok}\n")
+        r = p.run("check")
+        expect(r.returncode == 1, "empty slice cell must fail")
+        expect("slice" in r.stdout.lower(), f"error should concern the slice:\n{r.stdout}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test("check-rejects-malformed-inventory")
+def _():
+    """Missing columns and malformed rows are reported with line numbers."""
+    p, tmp = project()
+    try:
+        p.spec("overview")
+        p.raw_inventory("id,capability,slice,status,spec,ver\n")
+        r = p.run("check")
+        expect(r.returncode == 1, "missing column must fail")
+        expect("verify" in r.stdout, f"error should name the column:\n{r.stdout}")
+
+        p.raw_inventory("id,capability,slice,status,spec,ver,verify\n"
+                        "too,few,fields\n")
+        r = p.run("check")
+        expect(r.returncode == 1, "short row must fail")
+        expect("2" in r.stdout, f"error should give the line number:\n{r.stdout}")
+
+        p.raw_inventory("")
+        r = p.run("check")
+        expect(r.returncode == 1, "empty ledger file must fail")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # --------------------------------------------------------------------------
+
+@test("slice-state-is-derived-from-rows")
+def _():
+    """A slice's state is computed from the rows naming it."""
+    p, tmp = project()
+    try:
+        p.spec("overview")
+        ok = p.script("ok.py", 0)
+        spec = "specs/overview.md"
+
+        def state():
+            r = p.run("status")
+            expect(r.returncode == 0, f"status failed:\n{r.stderr}")
+            expect("SLICES" in r.stdout, f"status should report slices:\n{r.stdout}")
+            for line in r.stdout.splitlines():
+                if line.strip().startswith("s1"):
+                    return line
+            raise AssertionError(f"no slice line for s1:\n{r.stdout}")
+
+        p.inventory([("a", "A", "planned", spec, "1", ok),
+                     ("b", "B", "planned", spec, "1", ok)])
+        expect("planned" in state(), f"all-planned slice is planned: {state()}")
+
+        p.inventory([("a", "A", "building", spec, "1", ok),
+                     ("b", "B", "planned", spec, "1", ok)])
+        expect("building" in state(), f"any building row makes it building: {state()}")
+
+        p.inventory([("a", "A", "built", spec, "1", ok),
+                     ("b", "B", "planned", spec, "1", ok)])
+        expect("planned" in state(), f"partly built is not built: {state()}")
+
+        p.inventory([("a", "A", "built", spec, "1", ok),
+                     ("b", "B", "built", spec, "1", ok)])
+        expect("built" in state(), f"all rows built makes it built: {state()}")
+
+        text = (p.path / "slices" / "s1.md").read_text(encoding="utf-8")
+        expect("status:" not in text, f"slice should declare no status:\n{text}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test("check-rejects-declared-slice-status")
+def _():
+    """The self-report cannot come back in through the document."""
+    p, tmp = project()
+    try:
+        p.spec("overview")
+        p.slice_doc("s1")
+        expect(p.run("check").returncode == 0, "a statusless slice is valid")
+
+        for declared in ("built", "showcased", "planned", "anything"):
+            p.slice_doc("s1", status=declared)
+            r = p.run("check")
+            expect(r.returncode == 1, f"declared status {declared!r} must be rejected")
+            expect("derived" in r.stdout.lower(),
+                   f"error should explain state is derived:\n{r.stdout}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test("next-routes-on-derived-slice-state")
+def _():
+    """Routing follows the ledger: edit a row, the reported loop changes."""
+    p, tmp = project()
+    try:
+        p.spec("overview")
+        ok = p.script("ok.py", 0)
+        spec = "specs/overview.md"
+
+        p.inventory([("cap", "A cap", "planned", spec, "1", ok)])
+        _, d = p.next_json()
+        expect(d["loop"] == "sprout-build", f"planned row -> build, got {d}")
+
+        p.inventory([("cap", "A cap", "building", spec, "1", ok)])
+        _, d = p.next_json()
+        expect(d["rule"] == 3, f"building row -> rule 3, got {d}")
+
+        p.inventory([("cap", "A cap", "built", spec, "1", ok)])
+        _, d = p.next_json()
+        expect(d["loop"] == "sprout-slice", f"all built -> leaves flight, got {d}")
+        expect("showcase" in d["action"].lower(),
+               f"should still prompt for showcase, got {d['action']!r}")
+
+        expect("status:" not in (p.path / "slices" / "s1.md").read_text(encoding="utf-8"),
+               "slice document must not gain a status")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ------------------------------------------------------------------------
 
 def main(argv):
     if not argv or argv[0] in ("-h", "--help"):

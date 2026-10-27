@@ -2,7 +2,6 @@
 id: {{id}}
 kind: slice
 version: 1
-status: planned
 ---
 
 # {{title}}
@@ -34,9 +33,10 @@ Each needs a current exploded spec before implementation starts.
 
 ## Capabilities delivered
 
-Rows to add to `INVENTORY.md`. Every one needs a verify command that will exist
-by the end of the slice — decide it now, while it is still cheap to shape the
-work around being verifiable.
+Rows to add to `INVENTORY.csv`, each naming this slice in its `slice` column.
+Every one needs a verify command that will exist by the end of the slice —
+decide it now, while it is still cheap to shape the work around being
+verifiable.
 
 | ID | Capability | Verify |
 |---|---|---|

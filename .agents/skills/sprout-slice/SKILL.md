@@ -71,7 +71,7 @@ covers every walkthrough step, failure modes included.
 
 ## Then record intent
 
-Add the capabilities to `INVENTORY.md` as `planned`, each pinned to the current
+Add the capabilities to `INVENTORY.csv` as `planned`, each pinned to the current
 version of its spec, and run `python3 .sprout/sprout.py check`.
 
 ## Exit — success

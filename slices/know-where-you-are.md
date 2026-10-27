@@ -2,16 +2,17 @@
 id: know-where-you-are
 kind: slice
 version: 1
-status: showcased
 ---
 
 # Know where you are
 
-> Note: this slice's own frontmatter uses the new slice lifecycle it
-> introduces. Until it is built, the Checker does not validate document
-> statuses at all, which is the gap being closed — so `status: planned` is
-> accepted today by omission rather than by rule. First thing the build loop
-> does is make that accidental acceptance deliberate.
+> **Partly superseded by `slice-state-is-derived`.** This slice introduced a
+> declared slice lifecycle including a `showcased` state. That state was later
+> removed: it was an unverifiable self-report, which is exactly what the method
+> refuses elsewhere. Slice state is now derived from the inventory rows naming
+> the slice, and the capability `slice-lifecycle-is-representable` was retired.
+> The walkthrough below is kept as the record of what was delivered at the
+> time; steps 4 and 6 describe behaviour that no longer exists.
 
 ## Value
 

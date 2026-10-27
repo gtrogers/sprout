@@ -63,14 +63,20 @@ Every document carries a monotonic `version` in YAML frontmatter.
 
 ## The inventory
 
-`INVENTORY.md` is the arbiter — a markdown table, because you will read it far
-more often than any tool will.
+`INVENTORY.csv` is the arbiter. It is structured data, stored as such — CSV
+rather than JSON because the schema is flat, diffs and merges stay clean, and
+stdlib quoting means a description can contain commas and quotes without
+hand-escaping. The human-facing view is `sprout status`, which renders it
+better than a raw table would.
 
-| ID | Capability | Status | Spec | Ver | Verify |
-|---|---|---|---|---|---|
-| `auth-login` | A user can log in with email and password | built | `exploded-specs/auth.md` | 2 | `make verify-auth` |
+```csv
+id,capability,slice,status,spec,ver,verify
+auth-login,A user can log in with email and password,auth-happy-path,built,exploded-specs/auth.md,2,make verify-auth
+```
 
-`Ver` pins the spec version the capability was built against. Revise that spec
+The `slice` column links each capability to the work that delivers it, so
+slice state can be computed rather than declared. `ver` pins the spec version
+the capability was built against. Revise that spec
 and every row pinned to it **drifts**, failing checks until each is re-verified
 and re-pinned. That is the mechanism that stops specs quietly becoming fiction.
 
@@ -92,11 +98,12 @@ reconstructs it from the artifacts alone, by a fixed precedence, so a fresh
 session — or a different agent — resumes without re-deriving anything:
 
 ```
-rule     4
-loop     sprout-showcase
-reason   slice 'know-where-you-are' is built but has not been showcased
-blocker  slices/know-where-you-are.md is status 'built', not 'showcased'
-action   Bring the work up so it can be tried, then act on the feedback.
+rule     5
+loop     sprout-build
+reason   slice 'slice-state-is-derived' is specced with 3 capability(ies) planned
+blocker  3 capability(ies) still planned
+action   Write the black-box tests for the slice walkthrough, then confirm
+         each fails in the code under test before implementing.
 ```
 
 Structural failures outrank everything (an unparseable project has no

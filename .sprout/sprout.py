@@ -15,6 +15,7 @@ enforceable rather than aspirational.
 """
 
 import argparse
+import csv
 import datetime as _dt
 import json
 import re
@@ -26,18 +27,16 @@ from pathlib import Path
 SPEC_KINDS = ("spec", "exploded-spec", "slice", "spike")
 STATUSES = ("planned", "building", "built")
 
-# Documents that describe intent move through an editorial lifecycle; a slice
-# moves through a delivery lifecycle, because it is a unit of work rather than
-# a description of one.
+# Documents that describe intent carry an editorial status. A slice carries
+# none: its state is derived from the inventory rows that name it, because
+# progress is a fact about delivered capabilities rather than a claim.
 EDITORIAL_STATUSES = ("draft", "active", "superseded")
-SLICE_STATUSES = ("planned", "building", "built", "showcased")
 STATUSES_BY_KIND = {
     "spec": EDITORIAL_STATUSES,
     "exploded-spec": EDITORIAL_STATUSES,
     "spike": EDITORIAL_STATUSES,
-    "slice": SLICE_STATUSES,
 }
-INVENTORY_COLS = ("id", "capability", "status", "spec", "ver", "verify")
+INVENTORY_COLS = ("id", "capability", "slice", "status", "spec", "ver", "verify")
 SHELL_META = set("|><;&$`\n")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
@@ -111,40 +110,45 @@ def spec_files(root):
 # --------------------------------------------------------------------------
 
 def parse_inventory(root):
-    """Return (rows, errors). Each row is a dict keyed by INVENTORY_COLS."""
-    path = root / "INVENTORY.md"
+    """Return (rows, errors). The ledger is CSV: structured data, stored as
+    such. Quoting is handled by the stdlib, so a capability description may
+    contain commas, quotes or apostrophes without hand-escaping."""
+    path = root / "INVENTORY.csv"
     if not path.exists():
-        return [], ["INVENTORY.md not found at project root"]
+        return [], ["INVENTORY.csv not found at project root"]
 
-    rows, errors, header = [], [], None
-    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        s = raw.strip()
-        if not s.startswith("|"):
-            continue
-        cells = [c.strip() for c in s.strip("|").split("|")]
-        if header is None:
-            header = [c.lower() for c in cells]
+    rows, errors = [], []
+    try:
+        with path.open(newline="", encoding="utf-8") as fh:
+            reader = csv.reader(fh)
+            try:
+                header = [c.strip().lower() for c in next(reader)]
+            except StopIteration:
+                return [], ["INVENTORY.csv is empty; expected a header row"]
+
             missing = [c for c in INVENTORY_COLS if c not in header]
             if missing:
-                errors.append(
-                    f"INVENTORY.md line {lineno}: table is missing column(s): {', '.join(missing)}"
-                )
-                return [], errors
-            continue
-        if set("".join(cells)) <= set("-: "):
-            continue  # separator row
-        if len(cells) != len(header):
-            errors.append(
-                f"INVENTORY.md line {lineno}: {len(cells)} cells but header has {len(header)}"
-            )
-            continue
-        row = dict(zip(header, cells))
-        row["_line"] = lineno
-        row["verify"] = row["verify"].strip().strip("`").strip()
-        rows.append(row)
+                return [], [
+                    f"INVENTORY.csv: table is missing column(s): {', '.join(missing)}"
+                ]
 
-    if header is None:
-        errors.append("INVENTORY.md contains no markdown table")
+            for cells in reader:
+                lineno = reader.line_num
+                if not any(c.strip() for c in cells):
+                    continue
+                if len(cells) != len(header):
+                    errors.append(
+                        f"INVENTORY.csv line {lineno}: {len(cells)} field(s) "
+                        f"but the header has {len(header)}"
+                    )
+                    continue
+                row = {k: v.strip() for k, v in zip(header, cells)}
+                row["_line"] = lineno
+                row["verify"] = row["verify"].strip().strip("`").strip()
+                rows.append(row)
+    except (OSError, csv.Error) as exc:
+        errors.append(f"INVENTORY.csv: {exc}")
+
     return rows, errors
 
 
@@ -169,6 +173,22 @@ def parse_slice_subsystems(path):
                 if m.group(1) not in refs:
                     refs.append(m.group(1))
     return refs
+
+
+def derive_slice_states(slices, rows):
+    """A slice's state is computed, never declared: 'building' if any row is
+    building, 'built' once every row is built, 'planned' otherwise."""
+    states = {}
+    for s in slices:
+        mine = [r for r in rows if r.get("slice") == s["id"]]
+        if any(r["status"].lower() == "building" for r in mine):
+            state = "building"
+        elif mine and all(r["status"].lower() == "built" for r in mine):
+            state = "built"
+        else:
+            state = "planned"
+        states[s["id"]] = {"state": state, "rows": mine}
+    return states
 
 
 def collect(root):
@@ -196,9 +216,18 @@ def collect(root):
             continue
         specs_seen += 1
 
-        for field in ("id", "kind", "version", "status"):
+        required = ("id", "kind", "version")
+        if fm.get("kind") != "slice":
+            required += ("status",)
+        for field in required:
             if field not in fm:
                 problems.append(f"{rel}: frontmatter missing required field '{field}'")
+
+        if fm.get("kind") == "slice" and "status" in fm:
+            problems.append(
+                f"{rel}: a slice declares no status - its state is derived from "
+                f"the inventory rows naming it. Remove the field."
+            )
 
         if "kind" in fm and fm["kind"] not in SPEC_KINDS:
             problems.append(
@@ -216,7 +245,6 @@ def collect(root):
         if fm.get("kind") == "slice":
             slices.append({
                 "id": fm.get("id", path.stem),
-                "status": fm.get("status", ""),
                 "path": str(rel).replace("\\", "/"),
                 "subsystems": parse_slice_subsystems(path),
             })
@@ -243,7 +271,7 @@ def collect(root):
 
     seen_ids = {}
     for row in rows:
-        at = f"INVENTORY.md:{row['_line']}"
+        at = f"INVENTORY.csv:{row['_line']}"
         rid = row["id"]
 
         if not rid:
@@ -262,6 +290,15 @@ def collect(root):
         if status not in STATUSES:
             problems.append(
                 f"{at}: '{rid}' status '{row['status']}' is not one of {', '.join(STATUSES)}"
+            )
+
+        slice_ref = row["slice"]
+        if not slice_ref:
+            problems.append(f"{at}: '{rid}' names no slice")
+        elif not (root / "slices" / f"{slice_ref}.md").exists():
+            problems.append(
+                f"{at}: '{rid}' names slice '{slice_ref}', which does not exist "
+                f"at slices/{slice_ref}.md"
             )
 
         # spec reference must resolve, and the pinned version must match
@@ -340,6 +377,7 @@ def collect(root):
                 )
 
     return {
+        "slice_states": derive_slice_states(slices, rows),
         "structural": problems,
         "drift": drift,
         "notes": notes,
@@ -415,20 +453,14 @@ def resolve_position(root, facts):
                   "Continue the build loop. If tests are not written yet, "
                   "write them and confirm they fail in the code under test.")
 
-    built_slices = [s for s in slices if s["status"] == "built"]
-    if built_slices:
-        s = built_slices[0]
-        return at(4, "sprout-showcase",
-                  f"slice '{s['id']}' is built but has not been showcased",
-                  f"{s['path']} is status 'built', not 'showcased'",
-                  "Bring the work up so it can be tried, then act on the "
-                  "feedback. A slice is not done until it has been seen.")
+    states = facts["slice_states"]
+    in_flight = [s for s in slices
+                 if states.get(s["id"], {}).get("state") in ("planned", "building")]
 
-    in_flight = [s for s in slices if s["status"] in ("planned", "building")]
     for s in in_flight:
         missing = [ref for ref in s["subsystems"] if not (root / ref).exists()]
         if missing:
-            return at(5, "sprout-slice",
+            return at(4, "sprout-slice",
                       f"slice '{s['id']}' references a subsystem with no exploded spec",
                       f"missing: {', '.join(missing)}",
                       "Explode the remaining subsystems before implementing. "
@@ -437,19 +469,26 @@ def resolve_position(root, facts):
     planned = [r for r in rows if r["status"].lower() == "planned"]
     if in_flight and planned:
         s = in_flight[0]
-        return at(6, "sprout-build",
+        return at(5, "sprout-build",
                   f"slice '{s['id']}' is specced with {len(planned)} capability(ies) planned",
                   f"{len(planned)} capability(ies) still planned",
                   "Write the black-box tests for the slice walkthrough, then "
                   "confirm each fails in the code under test before implementing.")
 
     if facts["has_overview"]:
-        return at(7, "sprout-slice",
+        built = [sid for sid, v in states.items() if v["state"] == "built"]
+        recent = f" Showcase {built[-1]!r} if you have not already;" if built else ""
+        return at(6, "sprout-slice",
                   "an overview spec exists and no slice is in flight",
                   "no slice is planned or building",
-                  "Define the next slice and explode the subsystems it touches.")
+                  f"{recent} then define the next slice and explode the "
+                  f"subsystems it touches.".strip().capitalize()
+                  if recent else
+                  "Showcase the most recently built slice if you have not "
+                  "already, then define the next slice and explode the "
+                  "subsystems it touches.")
 
-    return at(8, "sprout-spec",
+    return at(7, "sprout-spec",
               "no overview spec exists yet",
               "specs/ contains no document of kind 'spec'",
               "Write the overview spec: goals, non-goals, subsystems, "
@@ -560,6 +599,16 @@ def cmd_status(root, args):
         print(f"\n{YELLOW}UNKNOWN STATUS ({len(unknown)}){RESET}")
         for row in unknown:
             print(f"  {row['id']:<28} status={row['status']!r}")
+
+    states = collect(root)["slice_states"]
+    if states:
+        print("\nSLICES")
+        sw = max(len(k) for k in states) + 2
+        for sid in sorted(states):
+            info = states[sid]
+            done = sum(1 for r in info["rows"] if r["status"].lower() == "built")
+            print(f"  {sid:<{sw}} {info['state']:<9} "
+                  f"{DIM}{done}/{len(info['rows'])} built{RESET}")
 
     total = len(rows)
     built = len(buckets["built"])

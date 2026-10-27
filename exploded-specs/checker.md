@@ -1,7 +1,7 @@
 ---
 id: checker
 kind: exploded-spec
-version: 2
+version: 3
 status: active
 parent: overview
 ---
@@ -54,7 +54,8 @@ Validating `status` against the kind closes a gap in v1, which checked only
 that the field was present. A slice could therefore carry any value at all,
 and one did — undetected — until the Navigator needed to read the lifecycle.
 
-Inventory: table parses with all required columns; IDs unique and well-formed;
+Inventory: CSV parses with all required columns; every row names a slice that
+exists; IDs unique and well-formed;
 `status` known; spec reference resolves; `Ver` matches the spec's current
 version; `built` rows carry a verify command; verify commands are free of shell
 metacharacters.

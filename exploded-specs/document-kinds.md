@@ -1,7 +1,7 @@
 ---
 id: document-kinds
 kind: exploded-spec
-version: 2
+version: 4
 status: active
 parent: overview
 ---
@@ -38,25 +38,28 @@ to work around.
 | `id` | Lowercase-hyphenated, must equal the filename stem |
 | `kind` | One of the four kinds |
 | `version` | Monotonic positive integer, bumped on substantive change |
-| `status` | Valid values depend on `kind` — see Lifecycles |
+| `status` | Editorial kinds only; slices declare none — see Lifecycles |
 | `parent` | Optional; for exploded specs, the spec they derive from |
 
 ### Lifecycles
 
-`status` is kind-specific. Documents that describe intent move through an
-editorial lifecycle; a slice moves through a delivery lifecycle, because a
-slice is a unit of work rather than a description of one.
+Documents that describe intent carry an editorial `status` of `draft`, `active`
+or `superseded`.
 
-| Kind | Valid statuses |
-|---|---|
-| `spec`, `exploded-spec`, `spike` | `draft`, `active`, `superseded` |
-| `slice` | `planned`, `building`, `built`, `showcased` |
+**A slice declares no status at all.** Its state is derived from the inventory
+rows that name it: `building` if any row is building, `built` once every row is
+built, `planned` otherwise. Declaring it is rejected.
 
-A slice is `built` when every capability it delivers is `built`, and
-`showcased` only after it has been demonstrated and the resulting feedback
-resolved. The distinction exists so that a delivered-but-unshown slice is a
-visible, addressable state — showcase is the loop most easily skipped, and an
-unrepresentable state is a skippable one.
+A slice is a unit of work, and its progress is a fact about the capabilities it
+delivers — so it is computed from the ledger rather than asserted in
+frontmatter. A declared status is a self-report, and a self-report is precisely
+what this method refuses everywhere else: it can be set to `built` by anyone,
+at any time, with nothing to contradict it.
+
+There is deliberately no `showcased` state. Showcasing is an *action* performed
+on built work to get feedback, not a property the work acquires, and a flag
+claiming it had happened could never be checked. Until showcase events are
+recorded, `next` prompts for it in its action text rather than tracking it.
 
 ### Altitudes
 
@@ -82,6 +85,14 @@ substituting `{{id}}`, `{{title}}` and `{{date}}`.
 | Name is not lowercase-hyphenated | Exits 2, explains the naming rule |
 | Target file already exists | Exits 2, refuses; never overwrites |
 | Template missing | Exits 2, names the expected template path |
+
+## Open questions
+
+- A slice document is a record of a delivery, so it is not rewritten when later
+  work supersedes it — but nothing currently stops it contradicting present
+  behaviour. It is handled by convention today: a note at the top naming what
+  superseded it. A `superseded-by` field would make the relationship checkable,
+  at the cost of bookkeeping on every slice that is never superseded.
 
 ## Invariants
 

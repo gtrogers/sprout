@@ -1,7 +1,7 @@
 ---
 id: navigator
 kind: exploded-spec
-version: 2
+version: 3
 status: active
 parent: overview
 ---
@@ -39,7 +39,7 @@ nobody can cheaply establish which loop they are in.
 ### Inputs
 
 `next` takes no arguments. Everything it reports is derived from `specs/`,
-`exploded-specs/`, `slices/`, `INVENTORY.md`, and the Checker's result.
+`exploded-specs/`, `slices/`, `INVENTORY.csv`, and the Checker's result.
 
 ### Outputs
 
@@ -66,11 +66,13 @@ deterministic, so two agents on the same artifacts always get the same answer.
 | 1 | Structural check failures (frontmatter, malformed inventory) | `repair` — not a skill |
 | 2 | Any drifted row | `sprout-tidy` |
 | 3 | Any row `building` | `sprout-build` |
-| 4 | A slice's status is `built` (not yet `showcased`) | `sprout-showcase` |
-| 5 | Slice in flight, a touched subsystem has no current exploded spec | `sprout-slice` |
-| 6 | Slice in flight with rows `planned`, none `building` | `sprout-build` |
-| 7 | Overview spec exists, no slice in flight | `sprout-slice` |
-| 8 | No overview spec | `sprout-spec` |
+| 4 | Slice in flight, a touched subsystem has no current exploded spec | `sprout-slice` |
+| 5 | Slice in flight with rows `planned`, none `building` | `sprout-build` |
+| 6 | Overview spec exists, no slice in flight | `sprout-slice` |
+| 7 | No overview spec | `sprout-spec` |
+
+A slice is *in flight* when its derived state is `planned` or `building` — that
+is, when some row naming it is not yet built.
 
 Rule 1 outranks everything because a project that cannot be parsed has no
 trustworthy position, and it yields the pseudo-loop `repair` rather than a
@@ -78,13 +80,16 @@ skill name. Rule 2 outranks progress because building on a drifted spec is how
 specs become fiction. Rule 3 outranks rule 4 so that a capability in progress
 is never masked by a slice awaiting showcase.
 
-**Slice status is maintained, not derived.** Inventory rows reference specs,
-not slices, so there is no link from a slice to the capabilities it delivers
-and "all of this slice's rows are built" cannot be computed. Rules 4 to 7 read
-the slice document's own `status`. That status is still an artifact — written
-down, versioned and reviewable — rather than an agent's in-context claim, and
-capability-level truth remains wholly derived from the inventory. But it can
-disagree with the rows, and nothing currently detects that.
+**Slice state is derived, never declared.** Every inventory row names the slice
+delivering it, so slice state is computed from the ledger: `building` if any
+row is building, `built` once all are, `planned` otherwise. Nothing the
+Navigator reads is self-reported, and a slice cannot claim to be further along
+than its capabilities are.
+
+**There is no showcase rule.** Showcasing is an action, not a state, and a flag
+asserting it had happened would be unverifiable. Rule 6 prompts for it in its
+action text instead. This is the one loop the Navigator cannot route to on
+evidence, and it is a known gap rather than an oversight.
 
 ### Failure modes
 
@@ -118,7 +123,7 @@ disagree with the rows, and nothing currently detects that.
 - Should a spike with an unanswered question block its dependent loop? It would
   need a machine-readable link from spike to blocked decision, which may be
   more bookkeeping than it earns.
-- Should the inventory gain a `Slice` column, so slice status becomes derived
-  rather than maintained? It would close the disagreement described above and
-  let the Checker catch a slice claiming `built` while its rows are `planned`.
-  The cost is a schema change to the one file users edit most by hand.
+- Showcase cannot be routed to on evidence until showcase events are recorded.
+  Once the observation log exists, "no showcase recorded for this built slice"
+  becomes a detectable gap and the rule can return — grounded in something that
+  happened rather than a flag someone set.

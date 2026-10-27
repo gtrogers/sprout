@@ -2,7 +2,6 @@
 id: self-hosting-core
 kind: slice
 version: 1
-status: showcased
 ---
 
 # Self-hosting core
@@ -42,7 +41,7 @@ they were promised actually exists.
 
 ## Capabilities delivered
 
-See `INVENTORY.md` for the authoritative rows. Ten capabilities, each verified
+See `INVENTORY.csv` for the authoritative rows. Ten capabilities, each verified
 by a black-box test that drives the CLI as a subprocess in a throwaway project.
 
 ## Out of scope

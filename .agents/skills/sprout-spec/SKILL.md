@@ -28,7 +28,7 @@ that are not constraints, or anything a test could pin down.
 - The user wants a new project specced, or the overview spec is now wrong.
 - If `.sprout/sprout.py` is absent this project is not initialised. Ask whether
   to set it up; if yes, copy `.sprout/` and `.agents/skills/` from the sprout
-  repo, create `INVENTORY.md` from `.sprout/templates/INVENTORY.md`, and append
+  repo, create `INVENTORY.csv` from `.sprout/templates/INVENTORY.csv`, and append
   `.sprout/templates/AGENTS-block.md` to `AGENTS.md`.
 
 Scaffold with `python3 .sprout/sprout.py new spec overview`.

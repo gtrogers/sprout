@@ -9,7 +9,7 @@ of work. Specs describe intent and interface; tests pin down behaviour.
 Non-negotiables:
 
 1. **Unverifiable means nonexistent.** A capability counts as built only when
-   `INVENTORY.md` lists it with a verify command that passes. No deterministic,
+   `INVENTORY.csv` lists it with a verify command that passes. No deterministic,
    programmatic check means it does not exist, however complete the code looks.
 2. **Tests before implementation.** Write black-box, end-to-end tests first,
    run them, and confirm they fail for the anticipated reason. A test that
