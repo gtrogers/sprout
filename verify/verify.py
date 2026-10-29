@@ -536,6 +536,28 @@ def _():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+@test("navigator", "showcase is prompted only when something was delivered")
+def _():
+    p, tmp = project()
+    try:
+        # a brand new project has delivered nothing; prompting to showcase it
+        # is nonsense and the first thing a new user would see
+        p.spec("overview")
+        _, d = p.next_json()
+        expect(d["rule"] == 3, f"overview and no subsystems -> rule 3, got {d}")
+        expect("showcase" not in d["action"].lower(),
+               f"nothing is built, so showcase must not be prompted: {d['action']!r}")
+
+        # once something is implemented, prompting for it is right
+        p.subsystem("auth", version=1, implemented=1)
+        _, d = p.next_json()
+        expect(d["rule"] == 3, f"caught up -> rule 3, got {d}")
+        expect("showcase" in d["action"].lower(),
+               f"delivered work should prompt a showcase: {d['action']!r}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 @test("navigator", "degenerate projects yield a position or a clear refusal")
 def _():
     p, tmp = project()

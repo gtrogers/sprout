@@ -512,11 +512,21 @@ def resolve_position(root, facts):
                   "'implemented' only after re-verifying.")
 
     if facts["has_overview"]:
+        # Only prompt for a showcase when there is something to show. On a
+        # fresh project it would be the first thing a new user reads, and
+        # nonsense.
+        delivered = any(s["state"] == "built" for s in facts["subsystems"].values())
+        action = ("Showcase the delivered work if you have not already, then "
+                  "define the next slice and update the specs it requires."
+                  if delivered else
+                  "Define the first slice: what should a user be able to do "
+                  "that they cannot yet? Then update the specs it requires.")
         return at(3, "sprout-slice",
-                  "an overview spec exists and every subsystem is caught up",
+                  "an overview spec exists and every subsystem is caught up"
+                  if facts["subsystems"] else
+                  "an overview spec exists and no subsystem is specced yet",
                   "no subsystem is behind its spec",
-                  "Showcase the delivered work if you have not already, then "
-                  "define the next slice and update the specs it requires.")
+                  action)
 
     return at(4, "sprout-spec",
               "no overview spec exists yet",
