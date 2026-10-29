@@ -1,6 +1,6 @@
 subsystem,spec,implemented,verify
 checker,exploded-specs/checker.md,4,python3 verify/verify.py checker
-distribution,exploded-specs/distribution.md,3,python3 verify/verify.py distribution
+distribution,exploded-specs/distribution.md,4,python3 verify/verify.py distribution
 document-kinds,exploded-specs/document-kinds.md,6,python3 verify/verify.py document-kinds
 inventory,exploded-specs/inventory.md,3,python3 verify/verify.py inventory
 navigator,exploded-specs/navigator.md,4,python3 verify/verify.py navigator

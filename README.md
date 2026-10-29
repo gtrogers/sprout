@@ -14,14 +14,43 @@ document kinds. No dependencies, no service, no personas.
 
 ## Install
 
+Two modes, because sprout's halves want opposite things. Skills are procedure
+and hold no project state, so one copy serves every project. The tool is
+committed per project on purpose: a checkout must carry its own checks, or CI
+and a teammate's clone cannot run them.
+
+**Once per machine** — link the skills into every agent's path:
+
 ```sh
-git clone <this repo> sprout
-python3 sprout/install.py /path/to/your/project
+git clone <this repo> ~/src/sprout
+python3 ~/src/sprout/install.py --global
 ```
 
-That copies the tooling and skills in, wires up every agent's discovery path,
-and appends the invariants to `AGENTS.md`. Re-running is safe; `--force`
-upgrades the method without ever touching your specs.
+That symlinks each skill into `~/.claude/skills` (Claude Code) and
+`~/.agents/skills` (Codex CLI, Cursor, Gemini CLI). Because they are links, not
+copies, updating is just:
+
+```sh
+git -C ~/src/sprout pull
+```
+
+Anything already at those paths is reported and left alone, never clobbered.
+
+**Once per project** — vendor the tool so the project carries its own checks:
+
+```sh
+python3 ~/src/sprout/install.py /path/to/your/project
+```
+
+That copies `.sprout/`, wires up the agent discovery paths, creates
+`INVENTORY.csv`, and appends the invariants to `AGENTS.md`. Re-running is safe;
+`--force` upgrades the tool without ever touching your specs.
+
+Project-local skills take precedence over global ones in Claude Code and Codex,
+so a project that vendors sprout keeps using its committed copy — reproducibility
+over currency. The cost is version skew: global skills track the clone while a
+project's tool stays where it was vendored, so bring a project forward with
+`install.py <project> --force`.
 
 Then start the `sprout-spec` skill, or ask your agent to "spec out this project
 with sprout".

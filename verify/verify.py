@@ -628,6 +628,57 @@ def _():
 # distribution
 # ==========================================================================
 
+@test("distribution", "global install links skills so git pull is the update")
+def _():
+    home = Path(tempfile.mkdtemp(prefix="sprout-home-"))
+    try:
+        r = subprocess.run(
+            [sys.executable, str(ROOT / "install.py"), "--global", "--home", str(home)],
+            capture_output=True, text=True)
+        expect(r.returncode == 0, f"global install failed:\n{r.stdout}{r.stderr}")
+
+        for agent_dir in (".claude/skills", ".agents/skills"):
+            base = home / agent_dir
+            expect(base.is_dir(), f"{agent_dir} was not created")
+            for skill in ("sprout-spec", "sprout-slice", "sprout-build",
+                          "sprout-tidy", "sprout-showcase", "sprout-spike"):
+                link = base / skill
+                expect(link.is_symlink(),
+                       f"{agent_dir}/{skill} must be a symlink, so git pull updates it")
+                expect(link.resolve() == (ROOT / ".agents" / "skills" / skill).resolve(),
+                       f"{agent_dir}/{skill} points at {link.resolve()}, not the repo")
+                expect((link / "SKILL.md").exists(),
+                       f"{agent_dir}/{skill} does not resolve to a skill")
+
+        # idempotent: a second run changes nothing and still succeeds
+        r2 = subprocess.run(
+            [sys.executable, str(ROOT / "install.py"), "--global", "--home", str(home)],
+            capture_output=True, text=True)
+        expect(r2.returncode == 0, f"re-run failed:\n{r2.stdout}{r2.stderr}")
+        expect("current" in r2.stdout.lower() or "skip" in r2.stdout.lower(),
+               f"re-run should report links as already current:\n{r2.stdout}")
+
+        # never clobber something a user put there
+        foreign = home / ".claude" / "skills" / "sprout-spec"
+        foreign.unlink()
+        foreign.mkdir()
+        (foreign / "SKILL.md").write_text("mine\n", encoding="utf-8")
+        r3 = subprocess.run(
+            [sys.executable, str(ROOT / "install.py"), "--global", "--home", str(home)],
+            capture_output=True, text=True)
+        expect((foreign / "SKILL.md").read_text(encoding="utf-8") == "mine\n",
+               "an existing directory must never be clobbered")
+        expect("sprout-spec" in r3.stdout, f"should report the conflict:\n{r3.stdout}")
+
+        # global mode must not touch the project-install paths
+        expect(not (home / "INVENTORY.csv").exists(),
+               "--global must not create project state")
+        expect(not (home / ".sprout").exists(),
+               "--global must not vendor the tool; that is per project")
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+
+
 @test("distribution", "install bootstraps a working project")
 def _():
     tmp = tempfile.mkdtemp(prefix="sprout-install-")

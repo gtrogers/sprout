@@ -1,7 +1,7 @@
 ---
 id: distribution
 kind: exploded-spec
-version: 3
+version: 4
 status: active
 parent: overview
 ---
@@ -34,6 +34,34 @@ is followed regardless of which agent is driving.
 |---|---|
 | `install.py <target>` | Install into the target directory, creating it if needed |
 | `--force` | Replace tooling and skills with newer versions |
+| `install.py --global` | Link the skills into the user's agent directories |
+| `--home <dir>` | Override the home directory `--global` writes into |
+
+### Two install modes, because the halves differ
+
+Skills are procedure and hold no project state, so one copy can serve every
+project on a machine. The tool and templates are committed per project on
+purpose: a checkout must carry its own checks, or CI and a teammate's clone
+cannot run them.
+
+`--global` therefore **symlinks** each skill directory out of this repository
+into the user's agent paths, so `git pull` is the whole update step. It never
+copies, because a copy would need re-installing to update, which is the problem
+it exists to solve.
+
+| Linked into | Serves |
+|---|---|
+| `~/.claude/skills/` | Claude Code |
+| `~/.agents/skills/` | Codex CLI, Cursor, Gemini CLI |
+
+Project-local skills take precedence over global ones in Claude Code and Codex,
+so a project that vendors sprout keeps using its own committed copy. That is
+the intended behaviour: reproducibility wins over currency.
+
+**Version skew is the cost.** Global skills track this repository while each
+project's tool stays where it was vendored, so a skill may reference a command
+an older vendored tool lacks. Updating a project is `install.py <target>
+--force`.
 
 ### What lands in the project
 
@@ -58,6 +86,9 @@ skills, so a project does not pay context for the whole method on every turn.
 | Condition | Observable result |
 |---|---|
 | Target is the sprout repo | Exits 2; refuses |
+| `--global` where a link already points at this repo | Skipped as already current |
+| `--global` where a name exists but points elsewhere | Reported and skipped, never clobbered |
+| `--global` where symlinks are unavailable | Reported as a failure, not silently copied |
 | Tooling already present, no `--force` | Skipped, with a line saying `--force` would update |
 | `AGENTS.md` already has the block | Skipped; never duplicated |
 | Symlinks unavailable | Falls back to copying and says so |
@@ -65,7 +96,9 @@ skills, so a project does not pay context for the whole method on every turn.
 
 ## Invariants
 
-- Re-running is safe and idempotent.
+- Re-running is safe and idempotent, in both modes.
+- `--global` only ever creates symlinks, so updating is `git pull` and never a
+  re-install.
 - Project state — specs, slices, spikes, inventory — is never overwritten, even
   with `--force`.
 - After install, `check` passes and `status` runs on the empty project.
